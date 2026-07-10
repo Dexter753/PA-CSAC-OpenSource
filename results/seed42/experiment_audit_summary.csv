@@ -1,0 +1,6 @@
+﻿check,passed,value,baseline
+benchmark_pa_better_than_acc,True,5.213788869428443,12.441167494550818
+benchmark_pa_safety,True,"vr=0.0151, upper=0.0193, gap=14.413",vr<=0.20 & upper<=0.20 & gap<=50.0
+ablation_pa_better_than_no_prediction,True,5.769868540863301,6.5669047614044
+ablation_pa_safety_gate,True,"upper=0.0193, gap=15.047, valid=1.000",upper<=0.20 & gap<=50.0 & valid>=0.20
+ablation_fuel_rank,False,mechanism_w_o_adaptive_weights > pa_csac_no_adaptive > pa_csac > no_prediction > mechanism_w_o_dyn_dsafe > mechanism_pa_adaptive > mean_prediction > mechanism_w_o_ada_and_dsafe,best_should_be_pa_csac

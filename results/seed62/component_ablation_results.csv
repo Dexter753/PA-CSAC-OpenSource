@@ -1,0 +1,6 @@
+﻿variant,label,use_cost_constraint,use_prob_embedding,constraint_method,penalty_weight,fuel_l_per_100km,gap_rmse,jerk_rmse,violation_rate,valid_episode_ratio,paper_valid
+pa_csac_full,PA-CSAC (Penalty),True,True,penalty,1.0,7.491293347865039,19.506351726130468,0.6134907930319327,0.0375,0.9411764705882353,True
+pa_csac_lagrangian,PA-CSAC (Lagrangian),True,True,lagrangian,1.0,6.2837794005624374,13.966638696317558,0.4917113901258374,0.033035714285714286,0.9411764705882353,True
+no_lagrangian,w/o Cost Constraint,False,True,penalty,1.0,6.17771204508046,15.586139419304878,0.47413917808081546,0.03277310924369748,1.0,True
+no_embedding,w/o Prob Embedding,True,False,penalty,1.0,6.586478518003138,13.703693459970504,0.5613200224410677,0.033928571428571426,0.9411764705882353,True
+no_lagrangian_no_embedding,w/o CostConstraint+Embed,False,False,penalty,1.0,6.857772645577081,15.610310176595274,0.5132430295785532,0.040336134453781515,1.0,True

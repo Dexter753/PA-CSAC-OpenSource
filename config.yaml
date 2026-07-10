@@ -1,0 +1,65 @@
+environment:
+  sim_time_len: 60              
+  sim_time_step: 0.1            
+  max_episode_steps: 600        
+
+vehicle_constraints:
+  distance_min_threshold: 1.0
+  distance_max_threshold: 150
+  velocity_threshold: 45
+  violation_tolerance: 5
+
+safety_distance:
+  base_distance: 2.0
+  time_headway: 0.3
+  min_safe_distance: 1.0
+  max_safe_distance: 80
+
+evaluation:
+  num_vehicles: 50
+  random_seed: 42
+  output_dir: "./evaluation_results"
+  save_detailed_logs: true
+
+models:
+  model_paths:
+    PPO_v4: "algos/PPO/models/v4_optimized/best/best_model.zip"
+    PPO_v5: "algos/PPO/models/v5_optimized/best/best_model.zip"
+    PPO_v6: "algos/PPO/models/v6_optimized/best/best_model.zip"
+  
+  comparison_output_dir: "./model_comparison_results"
+  vehicle_detail_dir: "vehicle_details"
+
+logging:
+  level: "INFO"
+  console_output: true
+  file_output: true
+  log_file: "evaluation.log"
+
+output_formats:
+  csv: true
+  json: true
+  excel: false
+
+performance:
+  batch_size: 10
+  use_multiprocessing: false
+  progress_bar: true
+
+validation:
+  check_nan_values: true
+  check_infinite_values: true
+  validate_ranges: true
+
+visualization:
+  generate_plots: true
+  plot_format: "png"
+  dpi: 300
+
+queue_coherence_weight: 0.3
+
+energy_efficiency_weight: 0.2
+safety_weight: 0.8
+smooth_acceleration_bonus: 0.1
+
+trend_analysis_enabled: true

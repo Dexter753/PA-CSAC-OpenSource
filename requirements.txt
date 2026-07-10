@@ -1,0 +1,18 @@
+# Core dependencies
+numpy==1.23.5
+# Install torch / torchvision separately with a build compatible with Python 3.12.5.
+gym==0.26.2
+
+# Data processing
+pandas==1.5.3
+scipy>=1.7.0
+matplotlib==3.7.1
+seaborn>=0.11.0
+
+# Optimization
+scikit-learn==1.2.2
+pyyaml==6.0
+
+# Additional utilities
+tqdm==4.65.0
+Pillow>=8.3.0

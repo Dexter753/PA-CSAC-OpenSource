@@ -1,0 +1,12 @@
+{
+  "best_params": {
+    "reward_scale": 5.0,
+    "reward_bias": 0.25,
+    "alpha_min": 0.02,
+    "alpha_max": 0.03,
+    "phase2_lr_ratio": 0.04
+  },
+  "best_score": 0.7238346666666666,
+  "elapsed_hours": 8.930344284243054,
+  "date": "2026-06-12 20:13:24"
+}

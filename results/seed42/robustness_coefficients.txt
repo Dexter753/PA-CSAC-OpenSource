@@ -1,0 +1,12 @@
+Robustness Coefficients (Prediction Error Impact Analysis)
+============================================================
+Definition: % increase in fuel consumption per unit error increase
+
+residual    : +5.7982 % fuel / unit error
+bias        : -1.5045 % fuel / unit error
+sigma       : -9.9044 % fuel / unit error
+
+Interpretation:
+- Positive coefficient: performance degrades as error increases
+- Higher absolute value: more sensitive to this error type
+- Negative coefficient: counter-intuitive improvement (check data)
