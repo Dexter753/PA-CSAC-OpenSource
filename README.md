@@ -49,6 +49,10 @@ PA_CSAC_OPEN_SOURCE/
 │   ├── aggregate_main_table.py            # Cross-seed main-table aggregation
 │   ├── plot_convergence_multiseed.py      # Multi-seed convergence figure
 │   ├── plot_ablation_bars.py              # Ablation bar figure
+│   ├── plot_lambda_trajectory.py          # PPO-Lagrangian dual-variable trajectory figure
+│   ├── plot_fuel_vsr_dominance.py         # Fuel vs. valid-scenario-ratio dominance figure
+│   ├── make_graphical_abstract.py         # Graphical abstract generation
+│   ├── train_comp_ablation_seeds2232.py   # Component-ablation training completion for seeds 22/32
 │   └── collect_compute_cost.py            # Compute-cost statistics collection
 ├── utils/                         # Validation and utility functions
 ├── assets/
