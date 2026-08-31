@@ -1,6 +1,6 @@
 ﻿check,passed,value,baseline
-benchmark_pa_better_than_acc,True,6.643972796368892,12.441167494550818
-benchmark_pa_safety,True,"vr=0.0304, upper=0.0205, gap=13.830",vr<=0.20 & upper<=0.20 & gap<=50.0
-ablation_pa_better_than_no_prediction,False,7.0482064471551835,5.305906248615418
-ablation_pa_safety_gate,True,"upper=0.0193, gap=14.257, valid=1.000",upper<=0.20 & gap<=50.0 & valid>=0.20
-ablation_fuel_rank,False,pa_csac_no_adaptive > mechanism_pa_adaptive > no_prediction > mechanism_w_o_dyn_dsafe > mean_prediction > mechanism_w_o_adaptive_weights > pa_csac > mechanism_w_o_ada_and_dsafe,best_should_be_pa_csac
+benchmark_pa_better_than_acc,True,5.539719459441457,12.640448582737719
+benchmark_pa_safety,True,"vr=0.0536, upper=0.0402, gap=24.878",vr<=0.20 & upper<=0.20 & gap<=50.0
+ablation_pa_better_than_no_prediction,False,5.491885984421267,3.851662785715626
+ablation_pa_safety_gate,True,"upper=0.0390, gap=22.240, valid=0.882",upper<=0.20 & gap<=50.0 & valid>=0.20
+ablation_fuel_rank,False,pa_csac_no_adaptive > mechanism_w_o_dyn_dsafe > mechanism_w_o_ada_and_dsafe > mean_prediction > no_prediction > mechanism_pa_adaptive > mechanism_w_o_adaptive_weights > pa_csac,best_should_be_pa_csac
