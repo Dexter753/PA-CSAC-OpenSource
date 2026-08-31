@@ -17,20 +17,39 @@ The release is organized to support a reproducible workflow from prediction data
 
 ```text
 PA_CSAC_OPEN_SOURCE/
-├── algos/PA_CSAC/                 # Core PA-CSAC implementation
+├── algos/PA_CSAC/                 # Core PA-CSAC implementation (incl. PPO-Lagrangian baseline,
+│                                   # sigma-source and shield on/off ablation switches)
 ├── prediction/
 │   ├── data/                      # Raw trajectory data
-│   ├── results/csv/               # Included processed control datasets
+│   ├── results/csv/               # Included processed control datasets + prediction-side
+│   │                               # experiment summaries (ablation, min-gap grid, paper metrics)
 │   ├── README.md                  # Prediction module notes
 │   └── transformer_traffic_predict_optimized.py
 ├── results/
-│   ├── seed42/                    # Archived experiment outputs
+│   ├── seed22/                    # Archived experiment outputs (five random seeds)
+│   ├── seed32/
+│   ├── seed42/
 │   ├── seed52/
-│   └── seed62/
+│   ├── seed62/
+│   ├── reeval_summary/            # Cross-seed re-evaluation mean±std summary tables
+│   ├── reward_hparam_sensitivity_aggregated.csv
+│   ├── split_conformal_analysis.csv
+│   └── compute_cost.csv
 ├── scripts/
 │   ├── run_quick.py               # Quick and paper-style experiment entry
 │   ├── run_full.py                # Full single-seed training entry
-│   └── workflow_manager.py        # Data/output validation entry
+│   ├── workflow_manager.py        # Data/output validation entry
+│   ├── run_reward_hparam_sensitivity.py   # Reward hyper-parameter sensitivity analysis
+│   ├── run_safe_rl_baseline.py            # Safe-RL baseline (PPO-Lagrangian) evaluation
+│   ├── reeval_perscenario.py              # Per-scenario re-evaluation across seeds
+│   ├── reeval_comp_ablation.py            # Component-ablation re-evaluation
+│   ├── reeval_shieldoff_baselines.py      # Shield on/off ablation re-evaluation
+│   ├── reeval_sigma_source.py             # Sigma-source ablation re-evaluation
+│   ├── split_conformal_analysis.py        # Split conformal prediction analysis
+│   ├── aggregate_main_table.py            # Cross-seed main-table aggregation
+│   ├── plot_convergence_multiseed.py      # Multi-seed convergence figure
+│   ├── plot_ablation_bars.py              # Ablation bar figure
+│   └── collect_compute_cost.py            # Compute-cost statistics collection
 ├── utils/                         # Validation and utility functions
 ├── assets/
 │   └── best_params.json           # Reference tuned parameters for PA-CSAC
@@ -83,16 +102,26 @@ Run a quick validation:
 python scripts/run_quick.py --smoke --seeds 42
 ```
 
-Run the paper-style three-seed experiment:
+Run the paper-style five-seed experiment:
 
 ```bash
-python scripts/run_quick.py --paper --seeds 42,52,62
+python scripts/run_quick.py --paper --seeds 22,32,42,52,62
 ```
 
-Run a single full training job:
+Run a single full training job (writes to `results/seed{N}`, overwriting the archived reference outputs; restore them with `git restore results/`):
 
 ```bash
 python scripts/run_full.py --seed 42
+```
+
+Reproduce the cross-seed analyses after training (expects model checkpoints under `results/seed{N}/models/`):
+
+```bash
+python scripts/reeval_perscenario.py          # per-scenario re-evaluation + mean/std summaries
+python scripts/aggregate_main_table.py        # cross-seed main table
+python scripts/run_reward_hparam_sensitivity.py
+python scripts/split_conformal_analysis.py
+python scripts/collect_compute_cost.py
 ```
 
 ## Validation

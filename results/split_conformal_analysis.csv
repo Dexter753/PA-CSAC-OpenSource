@@ -1,0 +1,4 @@
+﻿horizon_s,n_calib,n_test,picp_raw,mpiw_raw_mps,q_hat,picp_calibrated,mpiw_calibrated_mps,sigma_scale_vs_deployed,mpiw_reduction_pct
+1,1104,1173,0.9906,5.1553,1.8934,0.9898,4.9803,0.9661,3.39
+3,1072,1139,0.9956,4.8895,2.0639,0.9965,5.1488,1.053,-5.3
+5,1040,1105,0.9837,5.2794,2.1283,0.9937,5.7329,1.0859,-8.59

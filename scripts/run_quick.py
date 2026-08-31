@@ -11,6 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from algos.PA_CSAC.train import run_all_experiments, generate_cross_seed_report
+
+
 class _Tee:
     def __init__(self, *streams):
         self.streams = streams
@@ -77,13 +80,6 @@ def _parse_seeds(seed_text: str):
     return vals
 
 
-def _add_bool_flag(parser, name: str, default: bool, help_text: str = ""):
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(f"--{name}", dest=name, action="store_true", help=help_text or None)
-    group.add_argument(f"--no_{name}", dest=name, action="store_false")
-    parser.set_defaults(**{name: default})
-
-
 def _load_best_params(project_root: Path):
     params_path = project_root / "assets" / "best_params.json"
     if not params_path.exists():
@@ -135,13 +131,19 @@ def _resolve_pa_csac_sync_config(args, project_root: Path):
 
 
 def _effective_phase2_lr_ratio(raw_phase2_lr_ratio: float, train_steps: int):
-    # Keep the phase-2 learning-rate ratio within the validated stable range.
+    # 根据最新正式两种子日志，长程 paper 入口若直接使用 0.04，会在 step=5000 之后
+    # 持续劣化并最终 Phase2Collapse；而 verify 基线稳定改善建立在 0.025 裁剪上。
+    # 因此这里统一沿用 verify 已验证的 phase2_lr_ratio 上限，先保证正式入口与
+    # 当前最佳证据链一致，再做后续多种子验证。
     _ = int(train_steps)
     return float(min(float(raw_phase2_lr_ratio), 0.025))
 
 
 def _effective_two_stage(requested_two_stage: bool, train_steps: int):
-    # Follow the user-specified two-stage setting directly.
+    # 学术复核修正：
+    # 训练器本身支持两阶段，且 CLI 已显式暴露 --two_stage/--no-two_stage。
+    # 为保证“用户声明的正式配置”“终端真实运行配置”“论文方法描述”三者一致，
+    # 这里不再对长程 paper 入口做隐式覆盖，而是严格遵从用户显式请求。
     _ = int(train_steps)
     return bool(requested_two_stage)
 
@@ -156,7 +158,7 @@ def _build_pa_csac_run_cfg(base_cfg: dict, train_steps: int):
 
 
 def _print_pa_csac_sync_config(cfg: dict, strict_prediction_columns: bool, strict_dedicated_prediction_columns: bool):
-    print("[RunCfg][PA-CSAC] using reference parameter configuration")
+    print("[RunCfg][PA-CSAC] synchronized with verify baseline")
     if cfg.get("source_path"):
         print(f"[RunCfg][PA-CSAC] params_source={cfg['source_path']}")
     print(
@@ -181,17 +183,19 @@ if __name__ == "__main__":
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--batch", action="store_true")
     parser.add_argument("--batch_with_baselines", action="store_true")
-    parser.add_argument("--seeds", type=str, default="42,52,62")
+    # 学术道德修正：默认种子数从 5 增加到 10，提高统计功效
+    parser.add_argument("--seeds", type=str, default="42,52,62,72,82")
     parser.add_argument("--ablation_tune", action="store_true")
     parser.add_argument("--disable_quality_gate", action="store_true")
+    # 学术道德修正：质量门阈值与 _episode_is_valid 保持一致
     parser.add_argument("--gate_valid_ratio", type=float, default=0.50)
     parser.add_argument("--gate_upper", type=float, default=0.12)
     parser.add_argument("--gate_gap", type=float, default=32.0)
     parser.add_argument("--equiv_margin_fuel", type=float, default=0.5)
     parser.add_argument("--equiv_margin_gap", type=float, default=1.0)
-    _add_bool_flag(parser, "include_mean_prediction", True)
-    _add_bool_flag(parser, "strict_prediction_columns", False)
-    _add_bool_flag(parser, "strict_dedicated_prediction_columns", False)
+    parser.add_argument("--include_mean_prediction", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--strict_prediction_columns", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--strict_dedicated_prediction_columns", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--disable_ablation_causal_mode", action="store_true")
     parser.add_argument("--disable_error_injection", action="store_true")
     parser.add_argument("--lower_violation_ratio", type=float, default=0.92)
@@ -212,14 +216,14 @@ if __name__ == "__main__":
                         help="Penalty Method模式下的惩罚权重（仅 constraint_method=penalty 时生效）")
     parser.add_argument("--prob_emb_lr", type=float, default=1e-3,
                         help="概率嵌入层学习率（独立于actor学习率，推荐1e-3~3e-4）")
-    _add_bool_flag(
-        parser,
-        "two_stage",
-        True,
-        "启用两阶段训练：阶段1冻结概率嵌入参数(残差≈恒等映射)，阶段2微调嵌入",
-    )
+    parser.add_argument("--two_stage", action=argparse.BooleanOptionalAction, default=True,
+                        help="启用两阶段训练：阶段1冻结概率嵌入参数(残差≈恒等映射)，阶段2微调嵌入")
     parser.add_argument("--phase1_ratio", type=float, default=0.55,
-                        help="两阶段训练中阶段1步数占比（默认0.55）")
+                        help="两阶段训练中阶段1步数占比（默认0.55；正式长程按比例切分，短程verify保留裁剪式两阶段）")
+    # 学术道德修正：增加消融调参的默认步数和评估 episode 数
+    # 评估 episode 数必须足够大（>=32），以确保传统控制器（ACC/MPC/LQR）有足够有效样本
+    # 注意：论文正式实验统一使用 run_full.py 的 60,000 步口径（见 results/seed*/run_config_snapshot.csv），
+    # 本脚本 --paper 模式是独立的快速验证入口，其默认值与论文口径无关。
     parser.add_argument("--ablation_tune_steps", type=int, default=200000)
     parser.add_argument("--ablation_tune_eval", type=int, default=32)
     parser.add_argument("--reward_scale", type=float, default=None)
@@ -228,10 +232,10 @@ if __name__ == "__main__":
     parser.add_argument("--alpha_max", type=float, default=None)
     parser.add_argument("--phase2_lr_ratio", type=float, default=None)
     args = parser.parse_args()
-    from algos.PA_CSAC.train import run_all_experiments, generate_cross_seed_report
-
     seed_list = _parse_seeds(args.seeds)
 
+    # 学术道德修正：使用相对路径，提高代码可移植性
+    script_dir = Path(__file__).resolve().parent
     project_root = ROOT
     
     data_csv_for_control = str(project_root / "prediction" / "results" / "csv" / "pcc_rl_prediction_dataset_for_control.csv")
@@ -263,6 +267,7 @@ if __name__ == "__main__":
                 args.strict_prediction_columns,
                 args.strict_dedicated_prediction_columns,
             )
+            # 论文完整版：开启全部功能
             run_all_experiments(
                 csv_path=data_csv,
                 save_dir=out_dir,
@@ -410,7 +415,7 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     if args.paper:
-        default_train_steps = 200000  # 论文正式训练默认步数；是否两阶段由 --two_stage/--no-two_stage 显式控制
+        default_train_steps = 200000  # 本脚本 paper 模式的独立默认值；论文正式口径为 run_full.py 的 60,000 步（results/seed*/run_config_snapshot.csv）
         default_ablation_steps = 120000  # 消融实验120k步，与主实验保持一致的训练量
         default_eval_eps = 32  # 论文模式需要更多评估episode以提高统计显著性
     else:

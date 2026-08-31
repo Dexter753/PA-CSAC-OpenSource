@@ -44,7 +44,7 @@ python scripts/run_quick.py --smoke --seeds 42
 ## 4. Reproduce the Paper-Style Main Results
 
 ```bash
-python scripts/run_quick.py --paper --seeds 42,52,62
+python scripts/run_quick.py --paper --seeds 22,32,42,52,62
 ```
 
 Outputs are written under `outputs/quick/`.
@@ -55,9 +55,27 @@ Outputs are written under `outputs/quick/`.
 python scripts/run_full.py --seed 42
 ```
 
-Outputs are written under `outputs/full/seed42/`.
+Outputs are written under `results/seed42/` (this overwrites the archived reference outputs for that seed; restore them with `git restore results/`). Model checkpoints are saved under `results/seed{N}/models/` and are not tracked by Git.
 
-## 6. Validate Outputs
+## 6. Re-evaluation and Cross-Seed Analyses
+
+After training the five seeds, the cross-seed statistics in `results/reeval_summary/` can be regenerated (expects model checkpoints under `results/seed{N}/models/`):
+
+```bash
+python scripts/reeval_perscenario.py                 # per-scenario re-evaluation + mean/std summaries
+python scripts/run_safe_rl_baseline.py               # PPO-Lagrangian baseline rows
+python scripts/reeval_comp_ablation.py               # component ablation re-evaluation
+python scripts/reeval_shieldoff_baselines.py         # shield on/off ablation
+python scripts/reeval_sigma_source.py                # sigma-source ablation
+python scripts/aggregate_main_table.py               # cross-seed main table
+python scripts/run_reward_hparam_sensitivity.py      # reward hyper-parameter sensitivity
+python scripts/split_conformal_analysis.py           # split conformal analysis
+python scripts/collect_compute_cost.py               # compute-cost statistics
+python scripts/plot_convergence_multiseed.py         # multi-seed convergence figure
+python scripts/plot_ablation_bars.py                 # ablation bar figure
+```
+
+## 7. Validate Outputs
 
 ```bash
 python scripts/workflow_manager.py ^
@@ -67,17 +85,17 @@ python scripts/workflow_manager.py ^
 
 Validation reports are generated under `reports/`.
 
-## 7. Included Archived Runs
+## 8. Included Archived Runs
 
 The release already contains archived outputs for:
 
-- `results/seed42`
-- `results/seed52`
-- `results/seed62`
+- `results/seed22`, `results/seed32`, `results/seed42`, `results/seed52`, `results/seed62`
+- `results/reeval_summary/` (cross-seed mean±std re-evaluation summaries)
+- `results/reward_hparam_sensitivity_aggregated.csv`, `results/split_conformal_analysis.csv`, `results/compute_cost.csv`
 
 These are the paper-aligned archived runs included with the release. They are stored as slimmed public-release archives, and their source mapping is documented in `results/README.md`.
 
 Important note:
 
-- The manuscript main-results table is based on the three-seed statistics aggregated from `42,52,62`.
+- The manuscript main-results table is based on the five-seed statistics aggregated from `22,32,42,52,62`.
 - A single archived `benchmark_summary.csv` corresponds to one seed only and should not be interpreted as the final aggregated paper result by itself.

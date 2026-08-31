@@ -1279,3 +1279,139 @@ class PPO:
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.pi.load_state_dict(ckpt["pi"])
         self.v.load_state_dict(ckpt["v"])
+
+
+class PPOLagrangian(PPO):
+    """PPO-Lagrangian 约束RL基线（一阶原始-对偶，Stooke et al., 2020 风格）。
+
+    在 PPO 裁剪代理目标上叠加约束代价代理项，代价回报由独立的代价价值网络
+    vc 通过 GAE 估计；对偶变量按投影梯度上升更新：
+        λ ← max(0, λ + η_λ · (Jc − d)),  d = cost_limit
+    λ 每 epoch（每次 update 调用）更新一次，使用该 epoch 的约束回报均值 Jc，
+    与 Stooke et al. (2020) 的标准协议一致（若在内层梯度迭代中重复更新，
+    同一常数梯度会被累加，等效将 η_λ 放大 train_iters 倍并放大对偶振荡）。
+    策略损失：
+        L_pi = −E[min(r·A_r, clip(r)·A_r)] + λ · E[min(r·A_c, clip(r)·A_c)]
+    其中 A_c 为代价优势（不做标准化，保持与 cost_limit 同量纲）。
+    cost_limit 默认 0.30，与 PA-CSAC 主实验固定惩罚阈值 C_lim 使用同一数值
+    （train.py 构建 PACSAC 时显式传 cost_limit=0.30）。
+    """
+
+    def __init__(
+        self,
+        obs_dim,
+        act_dim=1,
+        act_limit=2.0,
+        gamma=0.99,
+        lam=0.95,
+        clip_ratio=0.2,
+        pi_lr=3e-4,
+        vf_lr=1e-3,
+        train_iters=80,
+        target_kl=0.02,
+        cost_limit=0.30,
+        lam_lr=5e-3,
+        device="cpu",
+    ):
+        super().__init__(
+            obs_dim, act_dim, act_limit, gamma, lam, clip_ratio,
+            pi_lr, vf_lr, train_iters, target_kl, device,
+        )
+        self.cost_limit = float(cost_limit)
+        self.lam_lr = float(lam_lr)
+        self.vc = ValueNet(obs_dim).to(self.device)
+        self.vc_opt = torch.optim.Adam(self.vc.parameters(), lr=vf_lr)
+        self.dual_lam = 0.0
+
+    def compute_cost_gae(self, costs, values_c, dones, last_value_c):
+        # 复用奖励 GAE 的递推结构（episode 边界重置逻辑一致）
+        return self.compute_gae(costs, values_c, dones, last_value_c)
+
+    def update(self, data):
+        obs = torch.as_tensor(data["obs"], dtype=torch.float32, device=self.device)
+        act = torch.as_tensor(data["act"], dtype=torch.float32, device=self.device)
+        adv = torch.as_tensor(data["adv"], dtype=torch.float32, device=self.device).unsqueeze(-1)
+        ret = torch.as_tensor(data["ret"], dtype=torch.float32, device=self.device).unsqueeze(-1)
+        cost_ret = torch.as_tensor(data["cost_ret"], dtype=torch.float32, device=self.device).unsqueeze(-1)
+        cost_adv = torch.as_tensor(data["cost_adv"], dtype=torch.float32, device=self.device).unsqueeze(-1)
+        logp_old = torch.as_tensor(data["logp"], dtype=torch.float32, device=self.device).unsqueeze(-1)
+
+        adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+        # cost_adv 不做标准化：其量纲需与 cost_limit 可比，供对偶变量更新使用
+
+        pi_loss_v = v_loss_v = vc_loss_v = kl_v = 0.0
+        jc_hat = float(cost_ret.mean().item())
+
+        for _ in range(self.train_iters):
+            mu, std = self.pi(obs)
+            dist = Normal(mu, std)
+            pre_tanh = torch.atanh((act / self.act_limit).clamp(-0.999, 0.999))
+            logp = dist.log_prob(pre_tanh).sum(dim=-1, keepdim=True)
+            logp -= (2 * (np.log(2) - pre_tanh - F.softplus(-2 * pre_tanh))).sum(dim=-1, keepdim=True)
+            ratio = torch.exp(logp - logp_old)
+
+            # 奖励代理（与 PPO 一致）
+            clip_adv = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * adv
+            rew_surr = torch.min(ratio * adv, clip_adv).mean()
+            # 代价代理（同样裁剪，保证约束更新与策略更新同阶）
+            clip_cost = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * cost_adv
+            cost_surr = torch.min(ratio * cost_adv, clip_cost).mean()
+
+            pi_loss = -rew_surr + self.dual_lam * cost_surr
+            v_loss = F.mse_loss(self.v(obs), ret)
+            vc_loss = F.mse_loss(self.vc(obs), cost_ret)
+
+            self.pi_opt.zero_grad()
+            pi_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.pi.parameters(), max_norm=10.0)
+            self.pi_opt.step()
+
+            self.v_opt.zero_grad()
+            v_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.v.parameters(), max_norm=10.0)
+            self.v_opt.step()
+
+            self.vc_opt.zero_grad()
+            vc_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.vc.parameters(), max_norm=10.0)
+            self.vc_opt.step()
+
+            with torch.no_grad():
+                kl = (logp_old - logp).mean().item()
+            pi_loss_v = float(pi_loss.item())
+            v_loss_v = float(v_loss.item())
+            vc_loss_v = float(vc_loss.item())
+            kl_v = float(kl)
+            if kl > 1.5 * self.target_kl:
+                break
+
+        # 对偶变量：投影梯度上升（λ ≥ 0），每 epoch（每次 update 调用）仅更新一次，
+        # 与 Stooke et al. (2020) 的标准一阶 Lagrangian 协议一致；
+        # jc_hat 为本 epoch 的约束回报估计（batch 内为常数，见 update() 开头）。
+        self.dual_lam = max(0.0, self.dual_lam + self.lam_lr * (jc_hat - self.cost_limit))
+
+        return {
+            "pi_loss": pi_loss_v,
+            "v_loss": v_loss_v,
+            "vc_loss": vc_loss_v,
+            "kl": kl_v,
+            "cost_ret": jc_hat,
+            "dual_lam": float(self.dual_lam),
+        }
+
+    def save(self, path):
+        _atomic_torch_save({
+            "pi": self.pi.state_dict(),
+            "v": self.v.state_dict(),
+            "vc": self.vc.state_dict(),
+            "dual_lam": float(self.dual_lam),
+        }, path)
+
+    def load(self, path):
+        ckpt = torch.load(path, map_location=self.device, weights_only=False)
+        self.pi.load_state_dict(ckpt["pi"])
+        self.v.load_state_dict(ckpt["v"])
+        if "vc" in ckpt:
+            self.vc.load_state_dict(ckpt["vc"])
+        if "dual_lam" in ckpt:
+            self.dual_lam = float(ckpt["dual_lam"])

@@ -24,7 +24,7 @@ CloudPCCEnv = env_module.CloudPCCEnv
 model_spec = importlib.util.spec_from_file_location("model", str(current_dir / "model.py"))
 model_module = importlib.util.module_from_spec(model_spec)
 model_spec.loader.exec_module(model_module)
-PACSAC, DDPG, TD3, SAC, PPO, ProbEmbeddingDiagnostic = (model_module.PACSAC, model_module.DDPG, model_module.TD3, model_module.SAC, model_module.PPO, model_module.ProbEmbeddingDiagnostic)
+PACSAC, DDPG, TD3, SAC, PPO, PPOLagrangian, ProbEmbeddingDiagnostic = (model_module.PACSAC, model_module.DDPG, model_module.TD3, model_module.SAC, model_module.PPO, model_module.PPOLagrangian, model_module.ProbEmbeddingDiagnostic)
 from utils.utils import ReplayBuffer, set_seed, summarize_metrics, add_fuel_reduction, plot_paper_ready_results, plot_training_comparison, plot_multi_algo_comparison, plot_map_style_figures, plot_soc_comparison, plot_component_ablation_results
 try:
     from .experiment_checks import two_sided_tests as _two_sided_tests
@@ -2000,6 +2000,109 @@ def train_ppo(csv_path, total_steps, save_dir, steps_per_epoch=2048, seed=82, fe
     else:
         agent.train_memory_mb = 0.0
     print(f"[Efficiency][PPO]: train_time={agent.train_time_seconds:.1f}s, peak_memory={agent.train_memory_mb:.1f}MB")
+    return agent, history, hist_steps
+
+def train_ppo_lagrangian(csv_path, total_steps, save_dir, steps_per_epoch=2048, seed=92, feature_mode="pa_csac", cost_limit=0.30, lam_lr=5e-3):
+    """PPO-Lagrangian 约束RL基线训练（与 train_ppo 同协议：同环境、同更新节奏）。
+
+    约束阈值 cost_limit 与 PA-CSAC 主实验固定惩罚阈值 C_lim 使用同一数值
+    （0.30；见本文件 PACSAC(cost_limit=0.30) 构建处）。
+    """
+    set_seed(int(seed))
+    start_time = time.time()
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    env = CloudPCCEnv(csv_path, device=device, feature_mode=feature_mode, split_mode="train")
+    obs_dim = int(env.observation_space.shape[0])
+    agent = PPOLagrangian(obs_dim=obs_dim, act_dim=1, act_limit=2.0, device=device, cost_limit=float(cost_limit), lam_lr=float(lam_lr))
+    save_path = os.path.join(save_dir, "ppo_lagrangian.pt")
+    hist_path = os.path.join(os.path.dirname(save_dir), "histories", "ppo_lagrangian_history.csv")
+    group_idx = 0
+    obs, _ = env.reset(options={"group_idx": group_idx})
+    ep_reward = 0.0
+    history = []
+    hist_steps = []
+    epoch_idx = 0
+    lambda_log = []  # 对偶变量轨迹：(epoch, step, jc_hat, dual_lam)，每 epoch 一条
+    steps_total = int(total_steps)
+    step_cursor = 0
+    while steps_total > 0:
+        n = int(min(steps_per_epoch, steps_total))
+        buf_obs, buf_act, buf_logp, buf_rew, buf_done, buf_val, buf_cost, buf_val_c = [], [], [], [], [], [], [], []
+        for _ in range(n):
+            obs_t = torch.as_tensor(obs, dtype=torch.float32, device=agent.device).unsqueeze(0)
+            with torch.no_grad():
+                a_t, logp_t = agent.pi.sample(obs_t)
+                v_t = agent.v(obs_t)
+                vc_t = agent.vc(obs_t)
+            act = a_t.cpu().numpy()[0].astype(np.float32)
+            next_obs, rew, done, _, info = env.step(act)
+            buf_obs.append(obs.copy())
+            exec_act = np.array([float(info.get("acc", np.asarray(act).reshape(-1)[0]))], dtype=np.float32)
+            buf_act.append(exec_act)
+            buf_logp.append(float(logp_t.detach().cpu().item()))
+            buf_rew.append(float(rew))
+            buf_done.append(float(done))
+            buf_val.append(float(v_t.detach().cpu().item()))
+            buf_cost.append(float(info["cost"]))
+            buf_val_c.append(float(vc_t.detach().cpu().item()))
+            obs = next_obs
+            ep_reward += float(rew)
+            if done:
+                history.append(ep_reward)
+                hist_steps.append(step_cursor + 1)
+                ep_reward = 0.0
+                group_idx = (group_idx + 1) % len(env.processed_groups)
+                obs, _ = env.reset(options={"group_idx": group_idx})
+            step_cursor += 1
+
+        last_val = 0.0
+        last_val_c = 0.0
+        obs_t = torch.as_tensor(obs, dtype=torch.float32, device=agent.device).unsqueeze(0)
+        with torch.no_grad():
+            last_val = float(agent.v(obs_t).detach().cpu().item())
+            last_val_c = float(agent.vc(obs_t).detach().cpu().item())
+        adv, ret = agent.compute_gae(np.array(buf_rew), np.array(buf_val), np.array(buf_done), last_val)
+        cost_adv, cost_ret = agent.compute_cost_gae(np.array(buf_cost), np.array(buf_val_c), np.array(buf_done), last_val_c)
+        data = {
+            "obs": np.array(buf_obs, dtype=np.float32),
+            "act": np.array(buf_act, dtype=np.float32),
+            "logp": np.array(buf_logp, dtype=np.float32),
+            "adv": adv.astype(np.float32),
+            "ret": ret.astype(np.float32),
+            "cost": np.array(buf_cost, dtype=np.float32),
+            "cost_adv": cost_adv.astype(np.float32),
+            "cost_ret": cost_ret.astype(np.float32),
+        }
+        agent_update_stats = agent.update(data)
+        lambda_log.append((
+            epoch_idx,
+            int(total_steps - steps_total),
+            float(agent_update_stats.get("cost_ret", float("nan"))),
+            float(agent_update_stats.get("dual_lam", float("nan"))),
+        ))
+        epoch_idx += 1
+        steps_total -= n
+
+    if ep_reward != 0.0:
+        history.append(ep_reward)
+        hist_steps.append(int(total_steps))
+
+    agent.save(save_path)
+    _save_history_csv(history, hist_path, hist_steps)
+    # 对偶变量 λ 轨迹（每 epoch 一条）：用于约束机制分析（对偶更新振荡/收敛的实证依据）
+    lambda_path = os.path.join(os.path.dirname(save_dir), "histories", "ppo_lagrangian_lambda.csv")
+    os.makedirs(os.path.dirname(lambda_path), exist_ok=True)
+    pd.DataFrame(lambda_log, columns=["epoch", "step", "jc_hat", "dual_lam"]).to_csv(
+        lambda_path, index=False, encoding="utf-8-sig"
+    )
+    # 记录训练耗时与内存峰值（用于计算效率对比）
+    agent.train_time_seconds = float(time.time() - start_time)
+    if torch.cuda.is_available():
+        agent.train_memory_mb = float(torch.cuda.max_memory_allocated() / (1024.0 * 1024.0))
+        torch.cuda.reset_peak_memory_stats()
+    else:
+        agent.train_memory_mb = 0.0
+    print(f"[Efficiency][PPO-Lag]: train_time={agent.train_time_seconds:.1f}s, peak_memory={agent.train_memory_mb:.1f}MB")
     return agent, history, hist_steps
 
 def _detect_available_density_modes(csv_path):
@@ -4170,15 +4273,11 @@ def run_all_experiments(
     print(f"All experiments finished. Data and plots saved to: {save_dir}")
 
 if __name__ == "__main__":
-    project_root = Path(__file__).resolve().parents[2]
-    data_csv_for_control = project_root / "prediction" / "results" / "csv" / "pcc_rl_prediction_dataset_for_control.csv"
-    data_csv_full = project_root / "prediction" / "results" / "csv" / "pcc_rl_prediction_dataset.csv"
-    data_csv = data_csv_for_control if data_csv_for_control.exists() else data_csv_full
-    save_dir = project_root / "outputs" / "debug"
-    if not data_csv.exists():
-        print(
-            "Error: processed prediction dataset not found. "
-            "Please run prediction/transformer_traffic_predict_optimized.py first."
-        )
+    # 请确保预测数据集已生成
+    _project_root = Path(current_dir).resolve().parents[2]
+    data_csv = str(_project_root / "prediction" / "results" / "csv" / "pcc_rl_prediction_dataset_for_control.csv")
+    if not os.path.exists(data_csv):
+        print(f"Error: Dataset not found at {data_csv}. Please run your Transformer script first.")
     else:
-        run_all_experiments(str(data_csv), save_dir=str(save_dir), train_only=False)
+        # 如果只想快速调试奖励函数，可以设置 train_only=True
+        run_all_experiments(data_csv, train_only=False)

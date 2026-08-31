@@ -1,0 +1,2 @@
+﻿method,n_seeds,fuel_mean,fuel_std,gap_mean,gap_std,jerk_mean,jerk_std,vr_mean,vr_std,vsr_mean,vsr_std,shield_rate_valid_mean_mean,shield_rate_valid_mean_std,shield_rate_all_mean_mean,shield_rate_all_mean_std,rate_limit_rate_all_mean_mean,rate_limit_rate_all_mean_std
+ShieldOff,5,5.932224516801016,1.2066034895947402,23.032769578136925,2.8638583272186526,0.20417228883760458,0.06587251864935792,0.025935374149659865,0.02008891453063847,0.23529411764705882,0.16109486985446062,0.0,0.0,0.0,0.0,0.31417756931183327,0.3078645512111115

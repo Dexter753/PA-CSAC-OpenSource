@@ -221,6 +221,14 @@ class CloudPCCEnv(gym.Env):
         sigma_scale = float(np.clip(sigma_scale, 0.1, 5.0))
         pred_adj = float(v_lead + residual_scale * (float(pred_v_mean_raw) - float(v_lead)) + bias_mps)
         sigma_adj = float(max(0.0, float(sigma_raw) * sigma_scale))
+        # σ 来源消融：用按预测时距分桶的经验残差标准差替换 learned σ（μ 保留 learned）
+        if str(p.get("prediction_sigma_source", "learned")) == "empirical_residual":
+            table = p.get("empirical_sigma_table", None)
+            if isinstance(table, dict) and table:
+                try:
+                    sigma_adj = float(np.mean([float(table[k]) for k in ("t+1", "t+3", "t+5")]))
+                except KeyError:
+                    pass
         return pred_adj, sigma_adj
 
     def _build_vehicle_groups(self, density_mode, split_mode):
@@ -518,7 +526,13 @@ class CloudPCCEnv(gym.Env):
         dt = float(np.clip(dt, 1e-3, 10.0))
 
         rel_v = float(v_lead - self.v_ego)
-        raw_acc_cmd = apply_safety_shield(a0, self.d_gap, d_safe, rel_v, dt_pred=dt_frame)
+        # 安全盾开关（消融用）：params["disable_shield"]=True 时跳过盾修正，
+        # 仅保留执行器物理限幅 [-3.0, 2.0] m/s^2 与加速度变化率限制
+        disable_shield = bool(self.params.get("disable_shield", False)) if isinstance(getattr(self, "params", None), dict) else False
+        if disable_shield:
+            raw_acc_cmd = float(np.clip(a0, -3.0, 2.0))
+        else:
+            raw_acc_cmd = apply_safety_shield(a0, self.d_gap, d_safe, rel_v, dt_pred=dt_frame)
         max_acc_delta_base = float(self.params.get("max_acc_delta", self.max_acc_delta)) if isinstance(getattr(self, "params", None), dict) else float(self.max_acc_delta)
         max_acc_delta_base = float(np.clip(max_acc_delta_base, 0.15, 0.60))
         # 根据 17:44 的终端证据，执行失配主要来自 rate limit 而不是 shield：
@@ -531,7 +545,10 @@ class CloudPCCEnv(gym.Env):
         if raw_acc_cmd < -2.0:
             max_acc_delta_down = float(max(max_acc_delta_down, abs(raw_acc_cmd - prev_a)))
         acc_cmd_rate_limited = float(np.clip(raw_acc_cmd, prev_a - max_acc_delta_down, prev_a + max_acc_delta_up))
-        acc_cmd = float(apply_safety_shield(acc_cmd_rate_limited, self.d_gap, d_safe, rel_v, dt_pred=dt_frame))
+        if disable_shield:
+            acc_cmd = acc_cmd_rate_limited
+        else:
+            acc_cmd = float(apply_safety_shield(acc_cmd_rate_limited, self.d_gap, d_safe, rel_v, dt_pred=dt_frame))
         
         # 2. 物理状态更新（dt_frame为数据帧间隔秒，dt为一次决策步长秒）
 

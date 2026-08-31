@@ -1,4 +1,4 @@
-﻿import torch 
+import torch 
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
@@ -3182,27 +3182,44 @@ def _plot_reliability_diagram(y_true, y_pred, y_std, horizon=10, output_dir=None
             expected_probs = []
             observed_freqs = []
             bin_counts = []
-            
+            ci_lo = []
+            ci_hi = []
+
             for b in range(n_bins):
                 mask_bin = bin_indices == b
                 if mask_bin.sum() < 5:  # 每个箱至少5个样本
                     continue
                 residuals_in_bin = residuals_valid[mask_bin]
                 std_in_bin = std_valid[mask_bin]
-                
+
                 # 预期覆盖率（基于高斯假设，±1.96σ覆盖95%）
                 expected_prob = 0.95
-                
+
                 # 实际观测覆盖率
                 in_ci = np.abs(residuals_in_bin) <= 1.96 * std_in_bin
                 observed_freq = in_ci.mean()
-                
+
+                # Wilson score 95% 置信区间（每箱二项比例）
+                n_b = int(mask_bin.sum())
+                z_w = 1.96
+                denom_w = 1.0 + z_w**2 / n_b
+                center_w = (observed_freq + z_w**2 / (2.0 * n_b)) / denom_w
+                half_w = (z_w / denom_w) * np.sqrt(observed_freq * (1.0 - observed_freq) / n_b
+                                                   + z_w**2 / (4.0 * n_b**2))
+                ci_lo.append(max(0.0, center_w - half_w))
+                ci_hi.append(min(1.0, center_w + half_w))
+
                 expected_probs.append(expected_prob)
                 observed_freqs.append(observed_freq)
                 bin_counts.append(mask_bin.sum())
-            
+
             if len(expected_probs) > 0:
-                ax.scatter(expected_probs, observed_freqs, s=[c*3 for c in bin_counts], 
+                ax.errorbar(expected_probs, observed_freqs,
+                            yerr=[np.array(observed_freqs) - np.array(ci_lo),
+                                  np.array(ci_hi) - np.array(observed_freqs)],
+                            fmt='none', ecolor='steelblue', elinewidth=1.0, capsize=2,
+                            alpha=0.8, zorder=2)
+                ax.scatter(expected_probs, observed_freqs, s=[c*3 for c in bin_counts],
                           c='steelblue', edgecolors='navy', alpha=0.7, zorder=3)
                 ax.plot([0, 1], [0, 1], 'r--', linewidth=2, label='Perfect Calibration', zorder=2)
                 
