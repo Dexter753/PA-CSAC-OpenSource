@@ -17,8 +17,9 @@ The release is organized to support a reproducible workflow from prediction data
 
 ```text
 PA_CSAC_OPEN_SOURCE/
-├── algos/PA_CSAC/                 # Core PA-CSAC implementation (incl. PPO-Lagrangian baseline,
-│                                   # sigma-source and shield on/off ablation switches)
+├── algos/PA_CSAC/                 # Core PA-CSAC implementation (incl. PPO-Lagrangian, SMORL,
+│                                   # and HRL baselines, sigma-source and shield on/off
+│                                   # ablation switches)
 ├── prediction/
 │   ├── data/                      # Raw trajectory data
 │   ├── results/csv/               # Included processed control datasets + prediction-side

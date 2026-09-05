@@ -1,0 +1,15 @@
+SMORL (Zhu et al., 2022) - unified per-scenario replay summary
+seeds: [22, 32, 42, 52, 62]
+
+conditional (valid-only) mean +/- std over seeds:
+      fuel_current_mean  gap_rmse_current_mean  jerk_rmse_current_mean  vr_hard_current_mean  vsr_current
+mean             4.9342                38.2404                  0.1623                   0.0       0.4353
+std              0.8084                 2.1018                  0.0085                   0.0       0.0526
+
+per-seed rows:
+ seed  vsr_current  n_valid_current  fuel_current_mean  gap_rmse_current_mean  jerk_rmse_current_mean  vr_hard_current_mean
+   22     0.470588                8           4.876060              39.490192                0.156868                   0.0
+   32     0.470588                8           3.735367              35.294525                0.175069                   0.0
+   42     0.411765                7           5.173599              38.537729                0.157336                   0.0
+   52     0.352941                6           5.989933              37.156122                0.167006                   0.0
+   62     0.470588                8           4.895969              40.723593                0.155051                   0.0

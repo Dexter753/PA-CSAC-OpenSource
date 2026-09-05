@@ -244,7 +244,18 @@ def _lqr_action(obs, dt, d0=5.0, T=1.2, tau_a=0.5):
     return _clip_action(u)
 
 
-def _mpc_beam_action(obs, dt, d0=5.0, T=1.2, horizon=8, beam_width=14, tau_a=0.5):
+def _mpc_beam_action(obs, dt, d0=5.0, T=1.2, horizon=8, beam_width=14, tau_a=0.5,
+                     v_lead_preview=None):
+    """Beam-search MPC baseline.
+
+    v_lead_preview : optional array of length ``horizon`` holding the forecast
+    preceding-vehicle speed for horizon steps 1..H (m/s). When None (the
+    original MPC), the observed v_lead is held constant within the horizon
+    (persistence preview). When provided (MPC-L), every horizon step h uses
+    v_lead_preview[h-1] in the gap propagation, the spacing reference, and the
+    safety-distance term, i.e., the learned mean preview replaces the
+    persistence assumption everywhere inside the horizon.
+    """
     v_ego, a_ego, d_gap, v_lead = float(obs[0]), float(obs[1]), float(obs[2]), float(obs[3])
     sigma_mean = float(obs[5]) if len(obs) > 5 else 0.0
 
@@ -259,26 +270,33 @@ def _mpc_beam_action(obs, dt, d0=5.0, T=1.2, horizon=8, beam_width=14, tau_a=0.5
     w_jerk = 0.08
     w_safe = 10.0
 
+    def _preview_at(h):
+        # h is the 1-based horizon step whose terminal state is being scored
+        if v_lead_preview is not None and len(v_lead_preview) >= h:
+            return float(v_lead_preview[h - 1])
+        return float(v_lead)
+
     beams = [(0.0, float(v_ego), float(a_ego), float(d_gap), None)]
-    for _ in range(int(horizon)):
+    for h_step in range(int(horizon)):
         cand = []
         for cost, v, a, d, first_u in beams:
-            rel_v = float(v_lead - v)
-            d_ref = _target_gap(v, v_lead, sigma_mean, d0=d0, T=T)
+            v_lead_h = _preview_at(h_step + 1)
+            rel_v = float(v_lead_h - v)
+            d_ref = _target_gap(v, v_lead_h, sigma_mean, d0=d0, T=T)
             e_gap = float(d - d_ref)
             for u in act_set.tolist():
                 a_next = float(a + (float(u) - a) * (dt / tau_a))
                 a_next = float(np.clip(a_next, -3.0, 2.0))
                 v_next = float(max(0.0, v + a_next * dt))
                 d_next = float(d + rel_v * dt)
-                rel_v_next = float(v_lead - v_next)
-                d_ref_next = _target_gap(v_next, v_lead, sigma_mean, d0=d0, T=T)
+                rel_v_next = float(v_lead_h - v_next)
+                d_ref_next = _target_gap(v_next, v_lead_h, sigma_mean, d0=d0, T=T)
                 e_gap_next = float(d_next - d_ref_next)
 
                 jerk = float((a_next - a) / max(dt, 1e-6))
                 stage = w_gap * (e_gap_next * e_gap_next) + w_relv * (rel_v_next * rel_v_next) + w_acc * (a_next * a_next) + w_jerk * (jerk * jerk)
 
-                d_safe_next = _dynamic_safe_distance_like(v_next, v_lead, sigma_mean)
+                d_safe_next = _dynamic_safe_distance_like(v_next, v_lead_h, sigma_mean)
                 deficit = float(max(0.0, 1.02 * d_safe_next - d_next))
                 stage = float(stage + w_safe * (deficit * deficit))
 
@@ -317,7 +335,7 @@ def _idm_action(obs, dt, v0=33.0, d0=5.0, T=1.2, a_max=2.0, b_comf=2.0, delta=4)
     return _clip_action(a)
 
 
-def baseline_controller(name, obs, dt=1.0):
+def baseline_controller(name, obs, dt=1.0, v_lead_preview=None):
     name = str(name)
     if not isinstance(obs, (list, tuple, np.ndarray)):
         return _clip_action(0.0)
@@ -327,6 +345,11 @@ def baseline_controller(name, obs, dt=1.0):
         return _lqr_action(obs, dt)
     if name == "MPC":
         return _mpc_beam_action(obs, dt)
+    if name == "MPC-L":
+        # MPC with the learned mean preview: identical beam search, weights,
+        # and dispersion channel as MPC; only the horizon reference of the
+        # preceding-vehicle speed is replaced by the predictor's forecast.
+        return _mpc_beam_action(obs, dt, v_lead_preview=v_lead_preview)
     if name == "IDM":
         return _idm_action(obs, dt)
     return _acc_time_headway(obs, dt)
@@ -4274,8 +4297,7 @@ def run_all_experiments(
 
 if __name__ == "__main__":
     # 请确保预测数据集已生成
-    _project_root = Path(current_dir).resolve().parents[2]
-    data_csv = str(_project_root / "prediction" / "results" / "csv" / "pcc_rl_prediction_dataset_for_control.csv")
+    data_csv = r"i:\资源汇总\强化学习车队节能控制项目-python\pcc_rl_prediction_dataset.csv"
     if not os.path.exists(data_csv):
         print(f"Error: Dataset not found at {data_csv}. Please run your Transformer script first.")
     else:

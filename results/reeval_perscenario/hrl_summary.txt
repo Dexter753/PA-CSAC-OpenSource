@@ -1,0 +1,15 @@
+HRL (Zhang et al., 2023) - unified per-scenario replay summary
+seeds: [22, 32, 42, 52, 62]
+
+conditional (valid-only) mean +/- std over seeds:
+      fuel_current_mean  gap_rmse_current_mean  jerk_rmse_current_mean  vr_hard_current_mean  vsr_current
+mean             4.5609                33.2812                  0.2049                0.0042       0.6353
+std              0.1177                 0.8698                  0.0068                0.0010       0.0263
+
+per-seed rows:
+ seed  vsr_current  n_valid_current  fuel_current_mean  gap_rmse_current_mean  jerk_rmse_current_mean  vr_hard_current_mean
+   22     0.588235               10           4.745270              33.273340                0.202718              0.002857
+   32     0.647059               11           4.427810              34.765688                0.193818              0.003896
+   42     0.647059               11           4.542195              32.968027                0.209281              0.003896
+   52     0.647059               11           4.507355              32.545547                0.209379              0.005195
+   62     0.647059               11           4.582075              32.853178                0.209322              0.005195

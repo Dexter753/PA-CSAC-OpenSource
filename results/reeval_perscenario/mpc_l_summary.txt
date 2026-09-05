@@ -1,0 +1,34 @@
+MPC-L (learned mean preview) - per-scenario replay summary
+scenarios: 17   valid (current protocol): 17
+
+conditional (valid-only) means:
+  fuel_l_per_100km : 15.6223
+  gap_rmse         : 18.7117
+  jerk_rmse        : 1.3075
+  vr_hard          : 0.1143
+
+all-scenario means:
+  fuel_l_per_100km : 15.6223
+  gap_rmse         : 18.7117
+  jerk_rmse        : 1.3075
+  vr_hard          : 0.1143
+
+per-scenario rows:
+ scenario_idx  steps terminated_reason  valid_current  fuel_l_per_100km  gap_rmse  jerk_rmse  vr_hard
+            0     70           timeout           True         14.920693 16.629939   1.372157 0.100000
+            1     70           timeout           True         15.784750 23.068980   1.301756 0.171429
+            2     70           timeout           True         15.969395 18.472858   1.348233 0.142857
+            3     70           timeout           True         16.306858 15.221970   1.406142 0.142857
+            4     70           timeout           True         16.764027 12.701199   1.481216 0.114286
+            5     70           timeout           True         17.280812 15.455069   1.394794 0.142857
+            6     70           timeout           True         18.182296  4.473646   1.120143 0.057143
+            7     70           timeout           True         24.987831 15.782339   1.317577 0.128571
+            8     70           timeout           True         14.380699 19.931318   1.254669 0.100000
+            9     70           timeout           True         16.104716 24.651599   1.283375 0.114286
+           10     70           timeout           True         14.483871 28.183832   1.319154 0.114286
+           11     70           timeout           True         15.350977 19.148203   1.321367 0.128571
+           12     70           timeout           True         15.847459 21.865048   1.299315 0.142857
+           13     70           timeout           True         14.642571 21.258681   1.332648 0.128571
+           14     70           timeout           True         15.258510 28.159675   1.422460 0.142857
+           15     70           timeout           True          8.772178 17.178946   1.016532 0.028571
+           16     70           timeout           True         10.540810 15.916404   1.235835 0.042857

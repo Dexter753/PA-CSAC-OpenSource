@@ -64,10 +64,17 @@ After training the five seeds, the cross-seed statistics in `results/reeval_summ
 ```bash
 python scripts/reeval_perscenario.py                 # per-scenario re-evaluation + mean/std summaries
 python scripts/run_safe_rl_baseline.py               # PPO-Lagrangian baseline rows
+python scripts/run_smorl_baseline.py                 # SMORL five-seed baseline training (60,000 steps per seed)
+python scripts/run_hrl_baseline.py                   # HRL five-seed baseline training (60,000 steps per seed)
+python scripts/reeval_smorl.py                        # SMORL unified per-scenario re-evaluation
+python scripts/reeval_hrl.py                          # HRL unified per-scenario re-evaluation
+python scripts/reeval_mpc_l.py                        # MPC-L (learned-preview MPC) re-evaluation
 python scripts/reeval_comp_ablation.py               # component ablation re-evaluation
 python scripts/reeval_shieldoff_baselines.py         # shield on/off ablation
 python scripts/reeval_sigma_source.py                # sigma-source ablation
 python scripts/aggregate_main_table.py               # cross-seed main table
+python scripts/make_speed_fuel_table.py               # speed-/time-normalised comparison table
+python scripts/make_operating_point_decomposition.py  # operating-point decomposition figure
 python scripts/run_reward_hparam_sensitivity.py      # reward hyper-parameter sensitivity
 python scripts/split_conformal_analysis.py           # split conformal analysis
 python scripts/collect_compute_cost.py               # compute-cost statistics
