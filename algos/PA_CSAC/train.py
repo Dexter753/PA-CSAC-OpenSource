@@ -4297,7 +4297,10 @@ def run_all_experiments(
 
 if __name__ == "__main__":
     # 请确保预测数据集已生成
-    data_csv = r"i:\资源汇总\强化学习车队节能控制项目-python\pcc_rl_prediction_dataset.csv"
+    data_csv = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "prediction", "results", "csv", "pcc_rl_prediction_dataset.csv",
+    )
     if not os.path.exists(data_csv):
         print(f"Error: Dataset not found at {data_csv}. Please run your Transformer script first.")
     else:
