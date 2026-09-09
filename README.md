@@ -42,11 +42,19 @@ PA_CSAC_OPEN_SOURCE/
 │   ├── workflow_manager.py        # Data/output validation entry
 │   ├── run_reward_hparam_sensitivity.py   # Reward hyper-parameter sensitivity analysis
 │   ├── run_safe_rl_baseline.py            # Safe-RL baseline (PPO-Lagrangian) evaluation
+│   ├── run_smorl_baseline.py              # SMORL five-seed baseline training
+│   ├── run_hrl_baseline.py                # HRL five-seed baseline training
 │   ├── reeval_perscenario.py              # Per-scenario re-evaluation across seeds
+│   ├── reeval_smorl.py                    # SMORL unified per-scenario re-evaluation
+│   ├── reeval_hrl.py                      # HRL unified per-scenario re-evaluation
+│   ├── reeval_mpc_l.py                    # MPC-L (learned-preview MPC) re-evaluation
+│   ├── make_speed_fuel_table.py           # Speed-/time-normalised comparison table
+│   ├── make_operating_point_decomposition.py  # Operating-point decomposition figure
 │   ├── reeval_comp_ablation.py            # Component-ablation re-evaluation
 │   ├── reeval_shieldoff_baselines.py      # Shield on/off ablation re-evaluation
 │   ├── reeval_sigma_source.py             # Sigma-source ablation re-evaluation
 │   ├── split_conformal_analysis.py        # Split conformal prediction analysis
+│   ├── diag_ppolag_seed_distance.py       # PPO-Lagrangian seed-independence audit (released checkpoints)
 │   ├── aggregate_main_table.py            # Cross-seed main-table aggregation
 │   ├── plot_convergence_multiseed.py      # Multi-seed convergence figure
 │   ├── plot_ablation_bars.py              # Ablation bar figure

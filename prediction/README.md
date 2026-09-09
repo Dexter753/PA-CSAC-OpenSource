@@ -18,7 +18,8 @@ prediction/
         ├── paper_ablation_summary.csv
         ├── paper_min_gap_summary.csv
         ├── paper_step_metrics.csv
-        └── paper_summary_metrics.csv
+        ├── paper_summary_metrics.csv
+        └── training_performance_monitor_*.csv
 ```
 
 ## Purpose

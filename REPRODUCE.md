@@ -55,7 +55,7 @@ Outputs are written under `outputs/quick/`.
 python scripts/run_full.py --seed 42
 ```
 
-Outputs are written under `results/seed42/` (this overwrites the archived reference outputs for that seed; restore them with `git restore results/`). Model checkpoints are saved under `results/seed{N}/models/` and are not tracked by Git.
+Outputs are written under `results/seed42/` (this overwrites the archived reference outputs for that seed; restore them with `git restore results/`). Model checkpoints are saved under `results/seed{N}/models/` and are not tracked by Git, except the five released `ppo_lagrangian.pt` audit checkpoints referenced by the supplementary material.
 
 ## 6. Re-evaluation and Cross-Seed Analyses
 

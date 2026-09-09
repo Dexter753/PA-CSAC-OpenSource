@@ -25,6 +25,9 @@ prediction/results/figures/
 *.pt
 *.pth
 *.ckpt
+# Exception: PPO-Lagrangian audit checkpoints referenced by the supplementary
+# material (seed-independence digests and the diag_ppolag_seed_distance script)
+!results/seed*/models/ppo_lagrangian.pt
 
 *.tmp
 *.bak
